@@ -726,10 +726,14 @@ export function createWebFetchTool(options?: {
   }
   const readabilityEnabled = resolveFetchReadabilityEnabled(fetch);
   const firecrawl = resolveFirecrawlConfig(fetch);
-  const firecrawlApiKey = resolveFirecrawlApiKey(firecrawl);
+  const runtimeFirecrawlActive = options?.runtimeFirecrawl?.active;
+  const shouldResolveFirecrawlApiKey =
+    runtimeFirecrawlActive === undefined ? firecrawl?.enabled !== false : runtimeFirecrawlActive;
+  const firecrawlApiKey = shouldResolveFirecrawlApiKey
+    ? resolveFirecrawlApiKey(firecrawl)
+    : undefined;
   const firecrawlEnabled =
-    options?.runtimeFirecrawl?.active ??
-    resolveFirecrawlEnabled({ firecrawl, apiKey: firecrawlApiKey });
+    runtimeFirecrawlActive ?? resolveFirecrawlEnabled({ firecrawl, apiKey: firecrawlApiKey });
   const firecrawlBaseUrl = resolveFirecrawlBaseUrl(firecrawl);
   const firecrawlOnlyMainContent = resolveFirecrawlOnlyMainContent(firecrawl);
   const firecrawlMaxAgeMs = resolveFirecrawlMaxAgeMsOrDefault(firecrawl);

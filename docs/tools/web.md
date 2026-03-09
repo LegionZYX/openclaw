@@ -49,6 +49,12 @@ The table above is alphabetical. If no `provider` is explicitly set, runtime aut
 
 If no keys are found, it falls back to Brave (you'll get a missing-key error prompting you to configure one).
 
+Runtime SecretRef behavior:
+
+- Web tool SecretRefs are resolved atomically at gateway startup/reload.
+- In auto-detect mode, OpenClaw resolves only the selected provider key. Non-selected provider SecretRefs stay inactive until selected.
+- If the selected provider SecretRef is unresolved and no provider env fallback exists, startup/reload fails fast.
+
 ## Setting up web search
 
 Use `openclaw configure --section web` to set up your API key and choose a provider.
@@ -77,7 +83,7 @@ See [Perplexity Search API Docs](https://docs.perplexity.ai/guides/search-quicks
 
 ### Where to store the key
 
-**Via config:** run `openclaw configure --section web`. It stores the key under `tools.web.search.apiKey` or `tools.web.search.perplexity.apiKey`, depending on provider.
+**Via config:** run `openclaw configure --section web`. It stores the key under `tools.web.search.apiKey` or `tools.web.search.perplexity.apiKey`, depending on provider. You can also store these fields as SecretRef objects.
 
 **Via environment:** set `PERPLEXITY_API_KEY`, `OPENROUTER_API_KEY`, or `BRAVE_API_KEY` in the Gateway process environment. For a gateway install, put it in `~/.openclaw/.env` (or your service environment). See [Env vars](/help/faq#how-does-openclaw-load-environment-variables).
 
@@ -216,6 +222,7 @@ Search the web using your configured provider.
   - **Grok**: `XAI_API_KEY` or `tools.web.search.grok.apiKey`
   - **Kimi**: `KIMI_API_KEY`, `MOONSHOT_API_KEY`, or `tools.web.search.kimi.apiKey`
   - **Perplexity**: `PERPLEXITY_API_KEY`, `OPENROUTER_API_KEY`, or `tools.web.search.perplexity.apiKey`
+- All provider key fields above support SecretRef objects.
 
 ### Config
 
@@ -310,6 +317,7 @@ Fetch a URL and extract readable content.
 
 - `tools.web.fetch.enabled` must not be `false` (default: enabled)
 - Optional Firecrawl fallback: set `tools.web.fetch.firecrawl.apiKey` or `FIRECRAWL_API_KEY`.
+- `tools.web.fetch.firecrawl.apiKey` supports SecretRef objects.
 
 ### web_fetch config
 
@@ -351,6 +359,8 @@ Notes:
 
 - `web_fetch` uses Readability (main-content extraction) first, then Firecrawl (if configured). If both fail, the tool returns an error.
 - Firecrawl requests use bot-circumvention mode and cache results by default.
+- Firecrawl SecretRefs are resolved only when Firecrawl is active (`tools.web.fetch.enabled !== false` and `tools.web.fetch.firecrawl.enabled !== false`).
+- If Firecrawl is active and its SecretRef is unresolved with no `FIRECRAWL_API_KEY` fallback, startup/reload fails fast.
 - `web_fetch` sends a Chrome-like User-Agent and `Accept-Language` by default; override `userAgent` if needed.
 - `web_fetch` blocks private/internal hostnames and re-checks redirects (limit with `maxRedirects`).
 - `maxChars` is clamped to `tools.web.fetch.maxCharsCap`.

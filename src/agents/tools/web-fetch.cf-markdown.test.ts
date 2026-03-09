@@ -101,7 +101,11 @@ describe("web_fetch Cloudflare Markdown for Agents", () => {
             fetch: {
               firecrawl: {
                 enabled: true,
-                apiKey: "firecrawl-config-key", // pragma: allowlist secret
+                apiKey: {
+                  source: "env",
+                  provider: "default",
+                  id: "MISSING_FIRECRAWL_KEY_REF",
+                },
               },
             },
           },
