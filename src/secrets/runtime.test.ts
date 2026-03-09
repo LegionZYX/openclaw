@@ -412,6 +412,33 @@ describe("secrets runtime snapshot", () => {
     );
   });
 
+  it("fails fast at startup when selected web search provider ref is unresolved", async () => {
+    await expect(
+      prepareSecretsRuntimeSnapshot({
+        config: asConfig({
+          tools: {
+            web: {
+              search: {
+                enabled: true,
+                provider: "gemini",
+                gemini: {
+                  apiKey: {
+                    source: "env",
+                    provider: "default",
+                    id: "MISSING_WEB_SEARCH_GEMINI_API_KEY",
+                  },
+                },
+              },
+            },
+          },
+        }),
+        env: {},
+        agentDirs: ["/tmp/openclaw-agent-main"],
+        loadAuthStore: () => ({ version: 1, profiles: {} }),
+      }),
+    ).rejects.toThrow("[WEB_SEARCH_KEY_UNRESOLVED_NO_FALLBACK]");
+  });
+
   it("exposes active runtime web tool metadata as a defensive clone", async () => {
     const snapshot = await prepareSecretsRuntimeSnapshot({
       config: asConfig({
@@ -664,7 +691,7 @@ describe("secrets runtime snapshot", () => {
     });
   });
 
-  it("clears active secrets runtime state and throws when refresh fails after a write", async () => {
+  it("keeps last-known-good runtime snapshot active when refresh fails after a write", async () => {
     if (os.platform() === "win32") {
       return;
     }
@@ -753,9 +780,11 @@ describe("secrets runtime snapshot", () => {
         /runtime snapshot refresh failed: simulated secrets runtime refresh failure/i,
       );
 
-      expect(getActiveSecretsRuntimeSnapshot()).toBeNull();
-      expect(loadConfig().gateway?.auth).toEqual({ mode: "token" });
-      expect(loadConfig().models?.providers?.openai?.apiKey).toEqual({
+      const activeAfterFailure = getActiveSecretsRuntimeSnapshot();
+      expect(activeAfterFailure).not.toBeNull();
+      expect(loadConfig().gateway?.auth).toBeUndefined();
+      expect(loadConfig().models?.providers?.openai?.apiKey).toBe("sk-file-runtime");
+      expect(activeAfterFailure?.sourceConfig.models?.providers?.openai?.apiKey).toEqual({
         source: "file",
         provider: "default",
         id: "/providers/openai/apiKey",
@@ -764,9 +793,75 @@ describe("secrets runtime snapshot", () => {
       const persistedStore = ensureAuthProfileStore(agentDir).profiles["openai:default"];
       expect(persistedStore).toMatchObject({
         type: "api_key",
-        keyRef: { source: "file", provider: "default", id: "/providers/openai/apiKey" },
+        key: "sk-file-runtime",
       });
-      expect("key" in persistedStore ? persistedStore.key : undefined).toBeUndefined();
+    });
+  });
+
+  it("keeps last-known-good web runtime snapshot when reload introduces unresolved active web refs", async () => {
+    await withTempHome("openclaw-secrets-runtime-web-reload-lkg-", async (home) => {
+      const prepared = await prepareSecretsRuntimeSnapshot({
+        config: asConfig({
+          tools: {
+            web: {
+              search: {
+                provider: "gemini",
+                gemini: {
+                  apiKey: { source: "env", provider: "default", id: "WEB_SEARCH_GEMINI_API_KEY" },
+                },
+              },
+            },
+          },
+        }),
+        env: {
+          WEB_SEARCH_GEMINI_API_KEY: "web-search-gemini-runtime-key", // pragma: allowlist secret
+        },
+        agentDirs: ["/tmp/openclaw-agent-main"],
+        loadAuthStore: () => ({ version: 1, profiles: {} }),
+      });
+
+      activateSecretsRuntimeSnapshot(prepared);
+
+      await expect(
+        writeConfigFile({
+          ...loadConfig(),
+          tools: {
+            web: {
+              search: {
+                provider: "gemini",
+                gemini: {
+                  apiKey: {
+                    source: "env",
+                    provider: "default",
+                    id: "MISSING_WEB_SEARCH_GEMINI_API_KEY",
+                  },
+                },
+              },
+            },
+          },
+        }),
+      ).rejects.toThrow(
+        /runtime snapshot refresh failed: .*WEB_SEARCH_KEY_UNRESOLVED_NO_FALLBACK/i,
+      );
+
+      const activeAfterFailure = getActiveSecretsRuntimeSnapshot();
+      expect(activeAfterFailure).not.toBeNull();
+      expect(loadConfig().tools?.web?.search?.gemini?.apiKey).toBe("web-search-gemini-runtime-key");
+      expect(activeAfterFailure?.sourceConfig.tools?.web?.search?.gemini?.apiKey).toEqual({
+        source: "env",
+        provider: "default",
+        id: "WEB_SEARCH_GEMINI_API_KEY",
+      });
+      expect(getActiveRuntimeWebToolsMetadata()?.search.selectedProvider).toBe("gemini");
+
+      const persistedConfig = JSON.parse(
+        await fs.readFile(path.join(home, ".openclaw", "openclaw.json"), "utf8"),
+      ) as OpenClawConfig;
+      expect(persistedConfig.tools?.web?.search?.gemini?.apiKey).toEqual({
+        source: "env",
+        provider: "default",
+        id: "MISSING_WEB_SEARCH_GEMINI_API_KEY",
+      });
     });
   });
 

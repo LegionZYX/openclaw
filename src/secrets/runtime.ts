@@ -193,7 +193,6 @@ export function activateSecretsRuntimeSnapshot(snapshot: PreparedSecretsRuntimeS
       activateSecretsRuntimeSnapshot(refreshed);
       return true;
     },
-    clearOnRefreshFailure: clearActiveSecretsRuntimeState,
   });
 }
 
