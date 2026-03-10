@@ -2,7 +2,7 @@
 summary: "Web search + fetch tools (Brave, Gemini, Grok, Kimi, and Perplexity providers)"
 read_when:
   - You want to enable web_search or web_fetch
-  - You need Brave or Perplexity Search API key setup
+  - You need provider API key setup
   - You want to use Gemini with Google Search grounding
 title: "Web Tools"
 ---
@@ -83,9 +83,25 @@ See [Perplexity Search API Docs](https://docs.perplexity.ai/guides/search-quicks
 
 ### Where to store the key
 
-**Via config:** run `openclaw configure --section web`. It stores the key under `tools.web.search.apiKey` or `tools.web.search.perplexity.apiKey`, depending on provider. You can also store these fields as SecretRef objects.
+**Via config:** run `openclaw configure --section web`. It stores the key under the provider-specific config path:
 
-**Via environment:** set `PERPLEXITY_API_KEY`, `OPENROUTER_API_KEY`, or `BRAVE_API_KEY` in the Gateway process environment. For a gateway install, put it in `~/.openclaw/.env` (or your service environment). See [Env vars](/help/faq#how-does-openclaw-load-environment-variables).
+- Brave: `tools.web.search.apiKey`
+- Gemini: `tools.web.search.gemini.apiKey`
+- Grok: `tools.web.search.grok.apiKey`
+- Kimi: `tools.web.search.kimi.apiKey`
+- Perplexity: `tools.web.search.perplexity.apiKey`
+
+All of these fields also support SecretRef objects.
+
+**Via environment:** set provider env vars in the Gateway process environment:
+
+- Brave: `BRAVE_API_KEY`
+- Gemini: `GEMINI_API_KEY`
+- Grok: `XAI_API_KEY`
+- Kimi: `KIMI_API_KEY` or `MOONSHOT_API_KEY`
+- Perplexity: `PERPLEXITY_API_KEY` or `OPENROUTER_API_KEY`
+
+For a gateway install, put these in `~/.openclaw/.env` (or your service environment). See [Env vars](/help/faq#how-does-openclaw-load-environment-variables).
 
 ### Config examples
 
